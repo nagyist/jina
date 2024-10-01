@@ -76,7 +76,7 @@ async def test_batch_queue_timeout_does_not_wait_previous_batch(flush_all):
         response_docarray_cls=DocumentArray,
         preferred_batch_size=5,
         timeout=3000,
-        flush_all=flush_all
+        flush_all=flush_all,
     )
 
     data_requests = [DataRequest() for _ in range(3)]
@@ -103,14 +103,12 @@ async def test_batch_queue_timeout_does_not_wait_previous_batch(flush_all):
     if flush_all is False:
         # TIME TAKEN: 8000 for first batch of requests, plus 4000 for second batch that is fired inmediately
         # BEFORE FIX in https://github.com/jina-ai/jina/pull/6071, this would take: 8000 + 3000 + 4000 (Timeout would start counting too late)
-        assert time_spent >= 12000
-        assert time_spent <= 12500
-    else:
         assert time_spent >= 8000
         assert time_spent <= 8500
-    if flush_all is False:
-        assert batches_lengths_computed == [5, 1, 2]
+        assert batches_lengths_computed == [5, 2, 1]
     else:
+        assert time_spent >= 7000
+        assert time_spent <= 7500
         assert batches_lengths_computed == [6, 2]
 
     await bq.close()
@@ -173,6 +171,7 @@ async def test_exception():
         response_docarray_cls=DocumentArray,
         preferred_batch_size=1,
         timeout=500,
+        flush_all=False,
     )
 
     data_requests = [DataRequest() for _ in range(35)]
@@ -223,6 +222,7 @@ async def test_exception_more_complex():
         response_docarray_cls=DocumentArray,
         preferred_batch_size=2,
         timeout=500,
+        flush_all=False,
     )
 
     data_requests = [DataRequest() for _ in range(35)]

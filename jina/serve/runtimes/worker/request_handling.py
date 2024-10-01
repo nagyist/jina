@@ -263,6 +263,9 @@ class WorkerRequestHandler:
         if getattr(self._executor, 'dynamic_batching', None) is not None:
             # We need to sort the keys into endpoints and functions
             # Endpoints allow specific configurations while functions allow configs to be applied to all endpoints of the function
+            self.logger.debug(
+                f'Executor Dynamic Batching configs: {self._executor.dynamic_batching}'
+            )
             dbatch_endpoints = []
             dbatch_functions = []
             request_models_map = self._executor._get_endpoint_models_dict()
@@ -294,10 +297,19 @@ class WorkerRequestHandler:
                 for endpoint in func_endpoints[func_name]:
                     if endpoint not in self._batchqueue_config:
                         self._batchqueue_config[endpoint] = dbatch_config
+                    else:
+                        # we need to eventually copy the `custom_metric`
+                        if dbatch_config.get('custom_metric', None) is not None:
+                            self._batchqueue_config[endpoint]['custom_metric'] = dbatch_config.get('custom_metric')
 
-            self.logger.debug(
-                f'Executor Dynamic Batching configs: {self._executor.dynamic_batching}'
-            )
+            keys_to_remove = []
+            for k, batch_config in self._batchqueue_config.items():
+                if not batch_config.get('use_dynamic_batching', True):
+                    keys_to_remove.append(k)
+
+            for k in keys_to_remove:
+                self._batchqueue_config.pop(k)
+
             self.logger.debug(
                 f'Endpoint Batch Queue Configs: {self._batchqueue_config}'
             )
@@ -399,6 +411,7 @@ class WorkerRequestHandler:
                     'metrics_registry': metrics_registry,
                     'tracer_provider': tracer_provider,
                     'meter_provider': meter_provider,
+                    'allow_concurrent': self.args.allow_concurrent,
                 },
                 py_modules=self.args.py_modules,
                 extra_search_paths=self.args.extra_search_paths,
